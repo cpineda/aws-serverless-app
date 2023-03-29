@@ -33,7 +33,7 @@
     jsonschema "^1.4.1"
     semver "^7.3.8"
 
-"@aws-cdk/core@^2.0.0":
+"@aws-cdk/core@^1.198.0":
   version "1.198.0"
   resolved "https://registry.yarnpkg.com/@aws-cdk/core/-/core-1.198.0.tgz#306d65e41ba0862f9a4ecb0da1f50fdbdf764932"
   integrity sha512-RRtyMI0VzLFtdwfyh8yMn4kuovi/1eUP/+hhspE0RiaEUdM0ulfHS2HEEdAUfYzzL6D+u+wl+hJjFDYhmGA2kQ==
