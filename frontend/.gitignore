@@ -25,36 +25,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local env files
+.env*.local
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Publish
-dist
-*.tsbuildinfo
-
-# Environment Variables
-.env*.local
-.env.staging
-.env.production
-
-# Secrets
-secrets.env
-
-# CDK assets
-.cdk.staging
-cdk.out
-
-# Test
-!jest.config.js
-
-# Optional npm cache directory
-.npm
-
-# Logs
-logs
-*.log
-npm-debug.log*
