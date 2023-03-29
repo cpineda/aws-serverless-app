@@ -15,7 +15,6 @@ export class PipelineStack extends cdk.Stack {
     super(scope, id, props);
 
     console.log("👀 Creating pipeline stack");
-    
 
     // Create ECR stack first to then push docker image
     const ecrStack = new EcrStack(this, "EcrStack");
@@ -32,39 +31,41 @@ export class PipelineStack extends cdk.Stack {
       environment: {
         buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
       },
-      buildSpec: codebuild.BuildSpec.fromObject({
+      buildSpec: codebuild.BuildSpec.fromObjectToYaml({
         version: "0.2",
         phases: {
           install: {
-            runtimeVersion: 14,
+            "runtime-versions": {
+              nodejs: 14,
+            },
+            commands: ["yarn install"],
+          },          
+          pre_build: {
+            commands: [
+              "echo 'Running pre-build script'",
+              "$(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)",
+              `REPOSITORY_URI=${ecrStack.repositoryUri}`,
+              "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
+              "IMAGE_TAG=${COMMIT_HASH:-latest}",
+            ],
           },
-          commands: ["yarn install"],
-        },
-        pre_build: {
-          commands: [
-            "echo 'Running pre-build script'",
-            "$(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)",
-            `REPOSITORY_URI=${ecrStack.repositoryUri}`,
-            "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
-            "IMAGE_TAG=${COMMIT_HASH:-latest}",
-          ],
-        },
-        build: {
-          commands: [
-            "echo 'Running build script'",
-            "yarn build",
-            "npx cdk synth",
-            "docker build -t $REPOSITORY_URI:latest .",
-            "docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
-          ],
-        },
-        post_build: {
-          commands: [
-            "echo 'Running post-build script'",
-            "docker push $REPOSITORY_URI:latest",
-            "docker push $REPOSITORY_URI:$IMAGE_TAG",
-            "echo 'Completed post-build script'",
-          ],
+          build: {
+            commands: [
+              "echo 'Running build script'",
+              "yarn build",
+              "npx cdk synth",
+              "docker build -t $REPOSITORY_URI:latest .",
+              "docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
+            ],
+          },
+          post_build: {
+            commands: [
+              "echo 'Running post-build script'",
+              "docker push $REPOSITORY_URI:latest",
+              "docker push $REPOSITORY_URI:$IMAGE_TAG",
+              "echo 'Completed post-build script'",
+            ],
+          },
         },
       }),
     });
@@ -203,6 +204,6 @@ export class PipelineStack extends cdk.Stack {
     new cdk.CfnOutput(this, "PipelineArn", {
       value: pipeline.pipelineArn,
       description: "PipelineArn",
-    })
+    });
   }
 }
