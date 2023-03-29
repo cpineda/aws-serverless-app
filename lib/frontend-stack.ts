@@ -10,7 +10,7 @@ export class FrontendStack extends Stack {
     // Create EKS cluster
     const eksCluster = new eks.Cluster(this, "EksCluster", {
       version: eks.KubernetesVersion.V1_21,
-      clusterName: "eks-demo",
+      clusterName: "eks-frontend",
     });
 
     // Add a fargate managed node group to the cluster

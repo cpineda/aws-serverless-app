@@ -43,7 +43,7 @@ export class GraphqlApiStack extends Stack {
     // Create a Lambda function
     const lambdaFunction = new lambda.Function(this, "lambda-function", {
       runtime: lambda.Runtime.NODEJS_14_X,
-      code: lambda.Code.fromAsset("lambda"),
+      code: lambda.Code.fromAsset("graphql/handlers"),
       handler: "index.handler",
     });
 
