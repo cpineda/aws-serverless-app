@@ -27,12 +27,12 @@ export class PipelineStack extends cdk.Stack {
     // Create a custom role with the necessary permissions for codebuild
     const codeBuildRole = new iam.Role(this, "CodeBuildRole", {
       roleName: "aws-serverless-codebuild-role",
-      description: "Role for CodeBuild",      
+      description: "Role for CodeBuild",
       assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
     });
 
     // Add necessary ECR permissions to the custom role
-    const ecrPolicyStatement = new iam.PolicyStatement({    
+    const ecrPolicyStatement = new iam.PolicyStatement({
       actions: [
         "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
@@ -59,7 +59,7 @@ export class PipelineStack extends cdk.Stack {
       role: codeBuildRole,
       environment: {
         buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
-        privileged:  true, // Required for Docker
+        privileged: true, // Required for Docker
       },
       buildSpec: codebuild.BuildSpec.fromObjectToYaml({
         version: "0.2",
@@ -81,8 +81,8 @@ export class PipelineStack extends cdk.Stack {
           build: {
             commands: [
               "echo 'Running build script'",
-              "cd frontend",         
-              "docker build -t $ECR_REPOSITORY_URI:latest .",
+              "cd frontend",
+              `docker build -t $ECR_REPOSITORY_URI:latest . --build-arg AWS_USER_POOLS_ID=${process.env.AWS_USER_POOLS_ID} --build-arg AWS_USER_POOLS_WEB_CLIENT_ID=${process.env.AWS_USER_POOLS_WEB_CLIENT_ID} --build-arg AWS_COGNITO_REGION=${process.env.AWS_COGNITO_REGION}`,
               "docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG",
             ],
           },
