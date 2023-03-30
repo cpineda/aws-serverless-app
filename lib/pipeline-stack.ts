@@ -9,12 +9,11 @@ import { DatabaseStack } from "./database-stack";
 import { EcrStack } from "./ecr-stack";
 import { FrontendStack } from "./frontend-stack";
 import { GraphqlApiStack } from "./graphql-api-stack";
+import * as iam from "aws-cdk-lib/aws-iam";
 
 export class PipelineStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props?: StackProps) {
     super(scope, id, props);
-
-    console.log("👀 Creating pipeline stack");
 
     // Create ECR stack first to then push docker image
     const ecrStack = new EcrStack(this, "EcrStack");
@@ -25,11 +24,42 @@ export class PipelineStack extends cdk.Stack {
       restartExecutionOnUpdate: true,
     });
 
+    // Create a custom role with the necessary permissions for codebuild
+    const codeBuildRole = new iam.Role(this, "CodeBuildRole", {
+      roleName: "aws-serverless-codebuild-role",
+      description: "Role for CodeBuild",      
+      assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
+    });
+
+    // Add necessary ECR permissions to the custom role
+    const ecrPolicyStatement = new iam.PolicyStatement({    
+      actions: [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:GetRepositoryPolicy",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages",
+        "ecr:BatchGetImage",
+        "ecr:DescribeImages",
+        "ecr:GetLifecyclePolicy",
+        "ecr:GetLifecyclePolicyPreview",
+        "ecr:ListTagsForResource",
+        "ecr:DescribeImageScanFindings",
+      ],
+      resources: ["*"],
+      effect: iam.Effect.ALLOW,
+    });
+
+    codeBuildRole.addToPolicy(ecrPolicyStatement);
+
     // Create a CodeBuild project for building the application
     const buildProject = new codebuild.PipelineProject(this, "BuildProject", {
       projectName: "aws-serverless-build-project",
+      role: codeBuildRole,
       environment: {
         buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
+        privileged:  true, // Required for Docker
       },
       buildSpec: codebuild.BuildSpec.fromObjectToYaml({
         version: "0.2",
@@ -39,12 +69,11 @@ export class PipelineStack extends cdk.Stack {
               nodejs: 14,
             },
             commands: ["yarn install"],
-          },          
+          },
           pre_build: {
             commands: [
               "echo 'Running pre-build script'",
-              "$(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)",
-              `REPOSITORY_URI=${ecrStack.repositoryUri}`,
+              "aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPOSITORY_URI",
               "COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)",
               "IMAGE_TAG=${COMMIT_HASH:-latest}",
             ],
@@ -52,17 +81,16 @@ export class PipelineStack extends cdk.Stack {
           build: {
             commands: [
               "echo 'Running build script'",
-              "yarn build",
-              "npx cdk synth",
-              "docker build -t $REPOSITORY_URI:latest .",
-              "docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG",
+              "cd frontend",         
+              "docker build -t $ECR_REPOSITORY_URI:latest .",
+              "docker tag $ECR_REPOSITORY_URI:latest $ECR_REPOSITORY_URI:$IMAGE_TAG",
             ],
           },
           post_build: {
             commands: [
               "echo 'Running post-build script'",
-              "docker push $REPOSITORY_URI:latest",
-              "docker push $REPOSITORY_URI:$IMAGE_TAG",
+              "docker push $ECR_REPOSITORY_URI:latest",
+              "docker push $ECR_REPOSITORY_URI:$IMAGE_TAG",
               "echo 'Completed post-build script'",
             ],
           },
